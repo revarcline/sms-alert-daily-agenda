@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Agenda SMS Alert
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/agenda
+EnvironmentFile=/home/YOUR_USER/agenda/.env
+ExecStart=/home/YOUR_USER/agenda/venv/bin/python /home/YOUR_USER/agenda/agenda.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daily-agenda
