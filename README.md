@@ -19,9 +19,10 @@ Recurring events (standups, weeklies) are filtered from the "Soon" section so it
 
 - **No SMS API costs** — uses free carrier email-to-SMS gateways
 - **Recurring event filtering** — detects and suppresses weekly repeats from the lookahead
+- **Multi-account** — each account is an independent systemd instance with its own Google identity, phone number, and send time
 - **Multi-calendar support** — combine calendars or send one SMS per calendar
 - **Auto auth-alert** — emails you if the Google token expires so the bot doesn't silently fail
-- **systemd integration** — ships with a service + timer for unattended daily delivery
+- **systemd integration** — ships with a template service and per-instance timers for unattended daily delivery
 
 ## Supported carriers
 
@@ -31,7 +32,7 @@ T-Mobile, AT&T, Verizon, Sprint, Boost, Cricket, Metro PCS, US Cellular, Virgin 
 
 ## Installation
 
-Download the latest `.whl` from [Releases](../../releases), then install it into a dedicated venv:
+Download the latest `.whl` from [Releases](../../releases), then install it into a shared venv:
 
 ```bash
 mkdir -p ~/agenda
@@ -39,79 +40,115 @@ python3 -m venv ~/agenda/venv
 ~/agenda/venv/bin/pip install sms_alert_daily_agenda-*.whl
 ```
 
-Verify the install:
+Alternatively, use `ci/install-from-whl.sh` to fetch the wheel from GitHub Releases automatically:
 
 ```bash
-~/agenda/venv/bin/daily-agenda --help
+./ci/install-from-whl.sh              # latest stable release
+./ci/install-from-whl.sh -v 0.2.0    # specific version
 ```
 
 ---
 
-## Setup
+## Adding an account
 
-### 1. Google Calendar credentials
+Each account gets its own directory under `~/agenda/accounts/<label>/` with its own `.env`, Google credentials, and OAuth token. All accounts share the venv.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create an **OAuth 2.0 Client ID** (Desktop app type)
-3. Download the JSON and save it as `~/agenda/credentials.json`
-4. Enable the **Google Calendar API** for the project
+### Prerequisites
 
-### 2. Gmail app password
+**Google Cloud** (once per Google account you want to connect):
 
-In your Google account: Security → 2-Step Verification → App passwords. Generate one for "Mail".
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Library
+2. Enable the **Google Calendar API**
+3. Go to Credentials → **Create credentials** → OAuth 2.0 Client ID (Desktop app type)
+4. Download the JSON — you'll drop it into the account directory during setup
 
-### 3. Configure environment
+**Gmail app password** (once per sending address):
 
-```bash
-cp .env.example ~/agenda/.env
-```
+Google account → Security → 2-Step Verification → App passwords. Generate one for "Mail". If you're setting up multiple accounts that share a Gmail sender, you only need one app password.
 
-Edit `~/agenda/.env` with your values — at minimum `SMTP_USER`, `SMTP_PASSWORD`, `PHONE_NUMBER`, and the paths to your credential files.
-
-### 4. Authenticate with Google
+### Run the wizard
 
 ```bash
-cd ~/agenda && venv/bin/daily-agenda --auth
+./ci/setup-account.sh
 ```
 
-This opens a browser tab for OAuth consent and saves `token.json`. On a headless server, SSH port-forward `localhost:<port>` and run `--auth` from there.
+The wizard will:
 
-### 5. Test it
+1. Ask for an account label (e.g. `alice`, `work`) — this becomes the systemd instance name
+2. Optionally import shared settings (SMTP credentials, timezone, behaviour) from an existing account's `.env`, then only ask for the account-specific fields (phone number, carrier, calendar IDs)
+3. Write `~/agenda/accounts/<label>/.env`
+4. Install the `daily-agenda@.service` template unit if not already present, then create and enable a per-instance timer at the time you choose
+5. Wait for you to place `credentials.json` in the account directory, then run the Google OAuth flow
+
+**Headless servers:** the OAuth step opens a browser. SSH port-forward `localhost:<port>` and run the wizard (or just the `--auth` step) from a machine with a browser.
+
+To authenticate manually after setup:
 
 ```bash
-cd ~/agenda && venv/bin/daily-agenda --dry-run
+cd ~/agenda/accounts/<label>
+~/agenda/venv/bin/daily-agenda --auth
 ```
 
-Prints the agenda to stdout without sending anything.
+### Adding more accounts
 
-### 6. Send for real
+Run the wizard again:
 
 ```bash
-cd ~/agenda && venv/bin/daily-agenda
+./ci/setup-account.sh
 ```
+
+When prompted to import from an existing `.env`, point it at any already-configured account. The SMTP credentials, timezone, and behaviour defaults will carry over — you'll only be asked for the phone number, carrier, and calendar IDs.
 
 ---
 
-## Automate with systemd
+## Directory layout
 
-The wheel includes the unit files under `sms_alert_daily_agenda/data/systemd/`. Copy them from your venv's site-packages, or grab them from the repo's `systemd/` directory:
-
-```bash
-# Edit YOUR_USER in both files before copying
-sudo cp systemd/daily-agenda.service /etc/systemd/system/
-sudo cp systemd/daily-agenda.timer   /etc/systemd/system/
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now daily-agenda.timer
-
-# Verify
-systemctl status daily-agenda.timer
-journalctl -u daily-agenda.service
+```
+~/agenda/
+├── venv/                            # shared venv, one install
+└── accounts/
+    ├── alice/
+    │   ├── .env
+    │   ├── credentials.json         # Google OAuth client (download from Cloud Console)
+    │   └── token.json               # auto-generated on first --auth
+    └── bob/
+        ├── .env
+        ├── credentials.json
+        └── token.json
 ```
 
-The `ExecStart` in the service file points to `~/agenda/venv/bin/daily-agenda`. Update the path if you installed to a different location.
+`credentials.json` and `token.json` are resolved relative to the account directory via `WorkingDirectory` in the service unit, so no explicit paths are needed in `.env`.
 
-The timer fires at 06:00 local time by default. Edit `OnCalendar=` in the `.timer` file to change it.
+---
+
+## Managing instances
+
+```bash
+# Check timer status for an account
+systemctl status daily-agenda@alice.timer
+
+# View logs
+journalctl -u daily-agenda@alice.service
+
+# Trigger a run immediately (dry-run via env override)
+systemctl start daily-agenda@alice.service
+
+# Disable an account's timer
+sudo systemctl disable --now daily-agenda@alice.timer
+```
+
+The timer `OnCalendar` is set per-instance at wizard time. To change the send time for an account, edit `/etc/systemd/system/daily-agenda@<label>.timer` and run `sudo systemctl daemon-reload`.
+
+---
+
+## Testing
+
+```bash
+cd ~/agenda/accounts/<label>
+~/agenda/venv/bin/daily-agenda --dry-run
+```
+
+Prints the formatted agenda to stdout without sending anything.
 
 ---
 
@@ -138,8 +175,8 @@ uv build --wheel
 Releases are tagged with `ci/tag-build.sh`, which updates the version in `pyproject.toml`, commits, and pushes a tag that triggers the GitHub Actions build:
 
 ```bash
-./ci/tag-build.sh rc 1       # → 0.1.0rc1
-./ci/tag-build.sh release    # → 0.1.0  (strips rc/dev suffix if present)
+./ci/tag-build.sh rc 1        # → 0.1.0rc1
+./ci/tag-build.sh release     # → 0.1.0  (strips rc/dev suffix if present)
 ./ci/tag-build.sh dev build.1 # → 0.1.0+build.1
 ```
 
@@ -147,7 +184,7 @@ Releases are tagged with `ci/tag-build.sh`, which updates the version in `pyproj
 
 ## Configuration reference
 
-All configuration is via environment variables (`.env` file).
+All configuration is via environment variables in each account's `.env` file.
 
 | Variable | Default | Description |
 |---|---|---|
