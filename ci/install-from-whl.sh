@@ -40,9 +40,9 @@ VENV_BIN="${VENV_PATH}/bin"
 # ── Resolve GitHub repo slug from git remote ──────────────────────────────────
 
 REPO=$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null | \
-    sed -E 's|.*github\.com[:/]([^/]+/[^/]+?)(\.git)?$|\1|')
+    sed -E -e 's|.*github\.com[:/]||' -e 's|\.git$||')
 
-if [[ -z "$REPO" || "$REPO" == *"github.com"* ]]; then
+if [[ -z "$REPO" || ! "$REPO" =~ ^[^/]+/[^/]+$ ]]; then
     echo "Error: could not parse a GitHub repo slug from git remote 'origin'." >&2
     exit 1
 fi
