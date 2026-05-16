@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Agenda SMS Alert (Timer)
+Requires=daily-agenda.service
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
