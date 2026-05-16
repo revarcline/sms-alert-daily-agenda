@@ -1,0 +1,14 @@
+# Per-instance timer — one file per account, named daily-agenda@<label>.timer.
+# ci/setup-account.sh generates these automatically.
+# %i in the service file is replaced with the instance label at runtime.
+
+[Unit]
+Description=Daily Agenda SMS Alert Timer (INSTANCE)
+Requires=daily-agenda@INSTANCE.service
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

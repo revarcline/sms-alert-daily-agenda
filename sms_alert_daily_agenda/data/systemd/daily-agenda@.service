@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Agenda SMS Alert (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/agenda/accounts/%i
+EnvironmentFile=/home/YOUR_USER/agenda/accounts/%i/.env
+ExecStart=/home/YOUR_USER/agenda/venv/bin/daily-agenda
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daily-agenda@%i
