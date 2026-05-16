@@ -98,9 +98,11 @@ echo
 
 # ── Account label ─────────────────────────────────────────────────────────────
 
-echo "  Each account becomes a systemd instance (daily-agenda@<label>)."
-echo "  Labels: letters, digits, hyphens, underscores."
-echo
+cat <<'EOF'
+  Each account becomes a systemd instance (daily-agenda@<label>).
+  Labels: letters, digits, hyphens, underscores.
+
+EOF
 
 LABEL=""
 while true; do
@@ -134,14 +136,29 @@ TIMER_TIME="06:00:00"
 
 # ── Import from existing .env? ────────────────────────────────────────────────
 
-echo
-hr
-echo
+# Collect existing accounts that have a .env (excluding the one being created)
+EXISTING_ACCOUNTS=()
+if [[ -d "$ACCOUNTS_BASE" ]]; then
+    while IFS= read -r -d '' env_file; do
+        account_name=$(basename "$(dirname "$env_file")")
+        [[ "$account_name" != "$LABEL" ]] && EXISTING_ACCOUNTS+=("$account_name")
+    done < <(find "$ACCOUNTS_BASE" -mindepth 2 -maxdepth 2 -name ".env" -print0)
+fi
 
-if prompt_yn "Import shared settings from an existing account .env?"; then
+DO_IMPORT=false
+if [[ ${#EXISTING_ACCOUNTS[@]} -gt 0 ]]; then
     echo
+    hr
+    echo
+    prompt_yn "Import shared settings from an existing account .env?" && DO_IMPORT=true
+fi
+
+if $DO_IMPORT; then
+    echo
+    # Default import path to the first existing account for convenience
+    DEFAULT_IMPORT="${ACCOUNTS_BASE}/${EXISTING_ACCOUNTS[0]}/.env"
     IMPORT_PATH=""
-    prompt IMPORT_PATH "Path to .env file"
+    prompt IMPORT_PATH "Path to .env file" "$DEFAULT_IMPORT"
     IMPORT_PATH="${IMPORT_PATH/#\~/$HOME}"
     [[ -f "$IMPORT_PATH" ]] || die "File not found: ${IMPORT_PATH}"
 
@@ -153,13 +170,15 @@ if prompt_yn "Import shared settings from an existing account .env?"; then
     _v=$(env_get LOOKAHEAD_DAYS         "$IMPORT_PATH"); LOOKAHEAD_DAYS="${_v:-$LOOKAHEAD_DAYS}"
     _v=$(env_get RECURRING_CHECK_WEEKS  "$IMPORT_PATH"); RECURRING_CHECK_WEEKS="${_v:-$RECURRING_CHECK_WEEKS}"
 
-    echo
-    echo "  Imported:"
-    echo "    SMTP              ${SMTP_USER:-<not set>} via ${SMTP_HOST}:${SMTP_PORT}"
-    echo "    TIMEZONE          ${TIMEZONE}"
-    echo "    LOOKAHEAD_DAYS    ${LOOKAHEAD_DAYS}"
-    echo "    RECURRING_CHECK_WEEKS  ${RECURRING_CHECK_WEEKS}"
-    echo
+    cat <<EOF
+
+  Imported:
+    SMTP              ${SMTP_USER:-<not set>} via ${SMTP_HOST}:${SMTP_PORT}
+    TIMEZONE          ${TIMEZONE}
+    LOOKAHEAD_DAYS    ${LOOKAHEAD_DAYS}
+    RECURRING_CHECK_WEEKS  ${RECURRING_CHECK_WEEKS}
+
+EOF
 
     if [[ -z "$SMTP_USER" ]]; then
         echo "  SMTP credentials were not found in the imported file."
@@ -167,8 +186,10 @@ if prompt_yn "Import shared settings from an existing account .env?"; then
         prompt_secret SMTP_PASSWORD "App password"
     fi
 
-    echo "  Account-specific fields:"
-    echo
+    cat <<'EOF'
+  Account-specific fields:
+
+EOF
     prompt PHONE_NUMBER "Phone number"
     echo "  Supported carriers: ${SUPPORTED_CARRIERS}"
     prompt CARRIER "Carrier" "tmobile"
@@ -177,36 +198,48 @@ if prompt_yn "Import shared settings from an existing account .env?"; then
 
 else
     echo
-    echo "  SMTP / sender"
-    echo
+    hr
+    cat <<'EOF'
+
+  SMTP / sender
+
+EOF
     prompt SMTP_USER "Gmail address (sender)"
     prompt_secret SMTP_PASSWORD "App password"
     prompt SMTP_HOST "SMTP host" "smtp.gmail.com"
     prompt SMTP_PORT "SMTP port" "587"
 
-    echo
-    echo "  SMS recipient"
-    echo
+    cat <<'EOF'
+
+  SMS recipient
+
+EOF
     prompt PHONE_NUMBER "Phone number (digits only)"
     echo "  Supported carriers: ${SUPPORTED_CARRIERS}"
     prompt CARRIER "Carrier" "tmobile"
 
-    echo
-    echo "  Google Calendar"
-    echo
+    cat <<'EOF'
+
+  Google Calendar
+
+EOF
     prompt CALENDAR_IDS "Calendar IDs (comma-separated, or 'primary')" "primary"
     prompt TIMEZONE "IANA timezone" "America/New_York"
 
-    echo
-    echo "  Behaviour"
-    echo
+    cat <<'EOF'
+
+  Behaviour
+
+EOF
     prompt LOOKAHEAD_DAYS        "Days ahead to show upcoming one-off events" "7"
     prompt RECURRING_CHECK_WEEKS "Weeks of history for recurring-event detection" "4"
 fi
 
-echo
-echo "  Timer"
-echo
+cat <<'EOF'
+
+  Timer
+
+EOF
 prompt TIMER_TIME "Send time (HH:MM:SS, 24h)" "06:00:00"
 
 # ── Write account directory and .env ──────────────────────────────────────────
@@ -258,8 +291,10 @@ TIMER_UNIT="/etc/systemd/system/daily-agenda@${LABEL}.timer"
 
 INSTALLED_SERVICE=false
 if [[ ! -f "$SERVICE_UNIT" ]]; then
-    echo "  Template service unit not yet installed."
-    echo
+    cat <<'EOF'
+  Template service unit not yet installed.
+
+EOF
     if prompt_yn "Install ${SERVICE_UNIT}? (requires sudo)"; then
         sudo tee "$SERVICE_UNIT" > /dev/null <<EOF
 [Unit]
@@ -306,9 +341,12 @@ EOF
         sudo systemctl enable --now "daily-agenda@${LABEL}.timer"
         ok "Timer enabled: daily-agenda@${LABEL}.timer"
     else
-        echo
-        echo "  Enable later with:"
-        echo "    sudo systemctl enable --now daily-agenda@${LABEL}.timer"
+        cat <<EOF
+
+  Enable later with:
+    sudo systemctl enable --now daily-agenda@${LABEL}.timer
+
+EOF
     fi
 fi
 
@@ -357,11 +395,13 @@ if [[ ${#EXISTING_CREDS[@]} -gt 0 ]]; then
 fi
 
 if ! $CREDS_READY; then
-    echo "  Download your OAuth 2.0 credentials JSON from:"
-    echo "    https://console.cloud.google.com/ → APIs & Services → Credentials"
-    echo "  Save it as: ${ACCOUNT_DIR}/credentials.json"
-    echo
-    echo "  Press Enter once credentials.json is in place, or Ctrl+C to skip and auth later."
+    cat <<EOF
+  Download your OAuth 2.0 credentials JSON from:
+    https://console.cloud.google.com/ → APIs & Services → Credentials
+  Save it as: ${ACCOUNT_DIR}/credentials.json
+
+  Press Enter once credentials.json is in place, or Ctrl+C to skip and auth later.
+EOF
     read -r -p "  > " || true
     echo
 fi
@@ -379,9 +419,11 @@ if [[ -f "${ACCOUNT_DIR}/credentials.json" ]]; then
     ok "Authentication complete. Token saved to ${ACCOUNT_DIR}/token.json"
 else
     warn "credentials.json not found — authenticate manually when ready:"
-    echo
-    echo "    cd ${ACCOUNT_DIR}"
-    echo "    ${DAILY_AGENDA} --auth"
+    cat <<EOF
+
+    cd ${ACCOUNT_DIR}
+    ${DAILY_AGENDA} --auth
+EOF
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
@@ -389,11 +431,13 @@ fi
 echo
 hr
 ok "Account '${LABEL}' configured."
-echo
-echo "  Dry-run test:"
-echo "    cd ${ACCOUNT_DIR} && ${DAILY_AGENDA} --dry-run"
-echo
-echo "  View logs:"
-echo "    journalctl -u daily-agenda@${LABEL}.service"
+cat <<EOF
+
+  Dry-run test:
+    cd ${ACCOUNT_DIR} && ${DAILY_AGENDA} --dry-run
+
+  View logs:
+    journalctl -u daily-agenda@${LABEL}.service
+EOF
 hr
 echo

@@ -50,8 +50,10 @@ fi
 
 echo "Fetching releases from github.com/${REPO}..."
 if ! RELEASES_JSON=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases" 2>&1); then
-    echo "Error: GitHub API request failed:" >&2
-    echo "  ${RELEASES_JSON}" >&2
+    cat >&2 <<EOF
+Error: GitHub API request failed:
+  ${RELEASES_JSON}
+EOF
     exit 1
 fi
 
@@ -154,7 +156,9 @@ if ! "${VENV_BIN}/pip" install --quiet --force-reinstall "${WHL_PATH}" 2>/tmp/da
     exit 1
 fi
 
-echo "Installed: ${VENV_BIN}/daily-agenda (${TARGET_VERSION})"
-echo "Run ci/setup-account.sh to configure accounts and systemd units."
+cat <<EOF
+Installed: ${VENV_BIN}/daily-agenda (${TARGET_VERSION})
+Run ci/setup-account.sh to configure accounts and systemd units.
+EOF
 
 rm -f /tmp/da-install-err
