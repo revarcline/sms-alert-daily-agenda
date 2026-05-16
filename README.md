@@ -32,20 +32,15 @@ T-Mobile, AT&T, Verizon, Sprint, Boost, Cricket, Metro PCS, US Cellular, Virgin 
 
 ## Installation
 
-Download the latest `.whl` from [Releases](../../releases), then install it into a shared venv:
-
-```bash
-mkdir -p ~/agenda
-python3 -m venv ~/agenda/venv
-~/agenda/venv/bin/pip install sms_alert_daily_agenda-*.whl
-```
-
-Alternatively, use `ci/install-from-whl.sh` to fetch the wheel from GitHub Releases automatically:
+Use `ci/install-from-whl.sh` to fetch the latest wheel from GitHub Releases and install it into a shared venv:
 
 ```bash
 ./ci/install-from-whl.sh              # latest stable release
 ./ci/install-from-whl.sh -v 0.2.0    # specific version
+./ci/install-from-whl.sh -p /opt/agenda/venv  # custom venv path
 ```
+
+This only installs the application. Account configuration is handled separately by the setup wizard.
 
 ---
 
@@ -60,11 +55,11 @@ Each account gets its own directory under `~/agenda/accounts/<label>/` with its 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Library
 2. Enable the **Google Calendar API**
 3. Go to Credentials → **Create credentials** → OAuth 2.0 Client ID (Desktop app type)
-4. Download the JSON — you'll drop it into the account directory during setup
+4. Download the JSON — you'll need it during setup
 
 **Gmail app password** (once per sending address):
 
-Google account → Security → 2-Step Verification → App passwords. Generate one for "Mail". If you're setting up multiple accounts that share a Gmail sender, you only need one app password.
+Google account → Security → 2-Step Verification → App passwords. Generate one for "Mail". Multiple accounts sharing a Gmail sender only need one app password.
 
 ### Run the wizard
 
@@ -78,7 +73,7 @@ The wizard will:
 2. Optionally import shared settings (SMTP credentials, timezone, behaviour) from an existing account's `.env`, then only ask for the account-specific fields (phone number, carrier, calendar IDs)
 3. Write `~/agenda/accounts/<label>/.env`
 4. Install the `daily-agenda@.service` template unit if not already present, then create and enable a per-instance timer at the time you choose
-5. Wait for you to place `credentials.json` in the account directory, then run the Google OAuth flow
+5. Check for an existing `credentials.json` in other accounts and offer to reuse it — or wait for you to place a new one, then run the Google OAuth flow
 
 **Headless servers:** the OAuth step opens a browser. SSH port-forward `localhost:<port>` and run the wizard (or just the `--auth` step) from a machine with a browser.
 
@@ -91,13 +86,14 @@ cd ~/agenda/accounts/<label>
 
 ### Adding more accounts
 
-Run the wizard again:
+Run the wizard again. It will:
+
+- Offer to import SMTP credentials, timezone, and behaviour settings from any existing account's `.env` — you'll only be asked for the phone number, carrier, calendar IDs, and send time
+- Detect any existing `credentials.json` and offer to copy it into the new account directory — useful when multiple Google accounts were authorized through the same OAuth app registration
 
 ```bash
 ./ci/setup-account.sh
 ```
-
-When prompted to import from an existing `.env`, point it at any already-configured account. The SMTP credentials, timezone, and behaviour defaults will carry over — you'll only be asked for the phone number, carrier, and calendar IDs.
 
 ---
 

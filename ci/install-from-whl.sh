@@ -15,7 +15,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEFAULT_VENV_PATH="${HOME}/agenda/venv"
 TARGET_VERSION=""
 VENV_PATH=""
-CUSTOM_PATH=false
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -26,7 +25,7 @@ while [[ $# -gt 0 ]]; do
             TARGET_VERSION="$2"; shift 2 ;;
         -p|--path)
             [[ -z "${2:-}" ]] && { echo "Error: -p/--path requires a value." >&2; exit 1; }
-            VENV_PATH="$2"; CUSTOM_PATH=true; shift 2 ;;
+            VENV_PATH="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 [-v VERSION] [-p VENV_PATH]"; exit 0 ;;
         *)
@@ -156,28 +155,6 @@ if ! "${VENV_BIN}/pip" install --quiet --force-reinstall "${WHL_PATH}" 2>/tmp/da
 fi
 
 echo "Installed: ${VENV_BIN}/daily-agenda (${TARGET_VERSION})"
-
-# ── Update systemd unit when a custom venv path was requested ─────────────────
-
-if $CUSTOM_PATH; then
-    SYSTEMD_UNIT="/etc/systemd/system/daily-agenda.service"
-    NEW_EXEC="${VENV_BIN}/daily-agenda"
-    if [[ -f "$SYSTEMD_UNIT" ]]; then
-        if sudo sed -i "s|^ExecStart=.*|ExecStart=${NEW_EXEC}|" "$SYSTEMD_UNIT" 2>/tmp/da-install-err; then
-            echo "Updated ExecStart in ${SYSTEMD_UNIT}."
-            if sudo systemctl daemon-reload 2>/dev/null; then
-                echo "Reloaded systemd daemon."
-            fi
-        else
-            echo "Warning: could not update ${SYSTEMD_UNIT} ($(cat /tmp/da-install-err))." >&2
-            echo "Update ExecStart manually:" >&2
-            printf '    ExecStart=%s\n' "${NEW_EXEC}" >&2
-        fi
-    else
-        echo "Note: ${SYSTEMD_UNIT} not installed yet."
-        echo "When you install the service unit, set:"
-        printf '    ExecStart=%s\n' "${NEW_EXEC}"
-    fi
-fi
+echo "Run ci/setup-account.sh to configure accounts and systemd units."
 
 rm -f /tmp/da-install-err
