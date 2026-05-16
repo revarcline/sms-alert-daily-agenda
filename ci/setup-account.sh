@@ -319,13 +319,52 @@ hr
 echo "  Google Calendar authentication"
 hr
 echo
-echo "  Download your OAuth 2.0 credentials JSON from:"
-echo "    https://console.cloud.google.com/ → APIs & Services → Credentials"
-echo "  Save it as: ${ACCOUNT_DIR}/credentials.json"
-echo
-echo "  Press Enter once credentials.json is in place, or Ctrl+C to skip and auth later."
-read -r -p "  > " || true
-echo
+
+# Scan other accounts for an existing credentials.json to reuse
+EXISTING_CREDS=()
+if [[ -d "$ACCOUNTS_BASE" ]]; then
+    while IFS= read -r -d '' creds_file; do
+        account_name=$(basename "$(dirname "$creds_file")")
+        [[ "$account_name" != "$LABEL" ]] && EXISTING_CREDS+=("$account_name")
+    done < <(find "$ACCOUNTS_BASE" -mindepth 2 -maxdepth 2 -name "credentials.json" -print0)
+fi
+
+CREDS_READY=false
+if [[ ${#EXISTING_CREDS[@]} -gt 0 ]]; then
+    if [[ ${#EXISTING_CREDS[@]} -eq 1 ]]; then
+        SOURCE_ACCOUNT="${EXISTING_CREDS[0]}"
+        echo "  credentials.json detected for account '${SOURCE_ACCOUNT}'."
+        if prompt_yn "Reuse it for '${LABEL}'?"; then
+            cp "${ACCOUNTS_BASE}/${SOURCE_ACCOUNT}/credentials.json" "${ACCOUNT_DIR}/credentials.json"
+            ok "Copied credentials.json from '${SOURCE_ACCOUNT}'."
+            CREDS_READY=true
+        fi
+    else
+        echo "  credentials.json found in the following accounts:"
+        for i in "${!EXISTING_CREDS[@]}"; do
+            echo "    $((i + 1))) ${EXISTING_CREDS[$i]}"
+        done
+        echo
+        read -r -p "  Reuse one for '${LABEL}'? Enter a number, or N to skip: " REPLY
+        if [[ "$REPLY" =~ ^[1-9][0-9]*$ ]] && (( REPLY >= 1 && REPLY <= ${#EXISTING_CREDS[@]} )); then
+            SOURCE_ACCOUNT="${EXISTING_CREDS[$((REPLY - 1))]}"
+            cp "${ACCOUNTS_BASE}/${SOURCE_ACCOUNT}/credentials.json" "${ACCOUNT_DIR}/credentials.json"
+            ok "Copied credentials.json from '${SOURCE_ACCOUNT}'."
+            CREDS_READY=true
+        fi
+    fi
+    echo
+fi
+
+if ! $CREDS_READY; then
+    echo "  Download your OAuth 2.0 credentials JSON from:"
+    echo "    https://console.cloud.google.com/ → APIs & Services → Credentials"
+    echo "  Save it as: ${ACCOUNT_DIR}/credentials.json"
+    echo
+    echo "  Press Enter once credentials.json is in place, or Ctrl+C to skip and auth later."
+    read -r -p "  > " || true
+    echo
+fi
 
 if [[ -f "${ACCOUNT_DIR}/credentials.json" ]]; then
     echo "  Running OAuth flow — a browser tab will open..."
