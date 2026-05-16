@@ -156,9 +156,30 @@ if ! "${VENV_BIN}/pip" install --quiet --force-reinstall "${WHL_PATH}" 2>/tmp/da
     exit 1
 fi
 
-cat <<EOF
-Installed: ${VENV_BIN}/daily-agenda (${TARGET_VERSION})
-Run ci/setup-account.sh to configure accounts and systemd units.
+echo "Installed: ${VENV_BIN}/daily-agenda (${TARGET_VERSION})"
+
+# ── Symlink into ~/.local/bin ─────────────────────────────────────────────────
+
+LOCAL_BIN="${HOME}/.local/bin"
+SYMLINK="${LOCAL_BIN}/daily-agenda"
+
+mkdir -p "$LOCAL_BIN"
+ln -sf "${VENV_BIN}/daily-agenda" "$SYMLINK"
+echo "Symlinked: ${SYMLINK} → ${VENV_BIN}/daily-agenda"
+
+if [[ ":${PATH}:" != *":${LOCAL_BIN}:"* ]]; then
+    cat <<EOF
+
+Note: ${LOCAL_BIN} is not in your \$PATH.
+Add it to your shell profile to use 'daily-agenda' directly:
+
+  echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> ~/.bashrc   # bash
+  echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> ~/.zshrc    # zsh
+
+Then reload your shell or run: export PATH="\$HOME/.local/bin:\$PATH"
 EOF
+fi
+
+echo "Run ci/setup-account.sh to configure accounts and systemd units."
 
 rm -f /tmp/da-install-err

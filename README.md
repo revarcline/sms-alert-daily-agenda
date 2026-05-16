@@ -81,7 +81,7 @@ To authenticate manually after setup:
 
 ```bash
 cd ~/agenda/accounts/<label>
-~/agenda/venv/bin/daily-agenda --auth
+daily-agenda --auth
 ```
 
 ### Adding more accounts
@@ -141,7 +141,7 @@ The timer `OnCalendar` is set per-instance at wizard time. To change the send ti
 
 ```bash
 cd ~/agenda/accounts/<label>
-~/agenda/venv/bin/daily-agenda --dry-run
+daily-agenda --dry-run
 ```
 
 Prints the formatted agenda to stdout without sending anything.

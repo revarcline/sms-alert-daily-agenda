@@ -17,7 +17,11 @@ from sms_alert_daily_agenda.config import CredentialError, GOOGLE_SCOPES
 log = logging.getLogger(__name__)
 
 
-def get_calendar_service(config: dict):
+def get_calendar_service(
+    config: dict,
+    auth_port: int = 0,
+    open_browser: bool = True,
+) -> object:
     """Return an authenticated Google Calendar API service, refreshing the token as needed."""
     creds: Optional[Credentials] = None
     token_path = Path(config["token_file"])
@@ -44,9 +48,7 @@ def get_calendar_service(config: dict):
                     "https://console.cloud.google.com/ (APIs & Services → Credentials)."
                 )
             flow = InstalledAppFlow.from_client_secrets_file(str(creds_path), GOOGLE_SCOPES)
-            # run_local_server opens a browser tab for OAuth consent.
-            # On a headless server: SSH port-forward localhost:PORT and run --auth from there.
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=auth_port, open_browser=open_browser)
             if creds is None:
                 raise RuntimeError("OAuth flow returned no credentials")
 

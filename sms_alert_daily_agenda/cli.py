@@ -22,12 +22,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Send daily Google Calendar agenda via SMS.")
     parser.add_argument("--auth", action="store_true", help="Run OAuth2 setup and exit.")
     parser.add_argument("--dry-run", action="store_true", help="Print agenda without sending SMS.")
+    parser.add_argument("--port", type=int, default=0, metavar="PORT",
+                        help="Port for the OAuth callback server (default: random). "
+                             "Use a fixed port when SSH port-forwarding on a headless server.")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="Do not open a browser during OAuth — print the auth URL instead. "
+                             "Use with --port and an SSH tunnel on headless servers.")
     args = parser.parse_args()
 
     config = load_config()
 
     try:
-        service = get_calendar_service(config)
+        service = get_calendar_service(
+            config,
+            auth_port=args.port,
+            open_browser=not args.no_browser,
+        )
     except CredentialError as exc:
         log.error("%s", exc)
         send_auth_alert(config)

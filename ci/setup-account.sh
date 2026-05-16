@@ -407,14 +407,39 @@ EOF
 fi
 
 if [[ -f "${ACCOUNT_DIR}/credentials.json" ]]; then
-    echo "  Running OAuth flow — a browser tab will open..."
+    # Detect headless: SSH session with no display available
+    AUTH_ARGS=()
+    if [[ -n "${SSH_CONNECTION:-}" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+        AUTH_PORT=8080
+        AUTH_ARGS=(--port "${AUTH_PORT}" --no-browser)
+
+        # Build the SSH tunnel command from connection info
+        SSH_SERVER_IP=$(echo "${SSH_CONNECTION}" | awk '{print $3}')
+        SSH_SERVER_PORT=$(echo "${SSH_CONNECTION}" | awk '{print $4}')
+        SERVER_HOST=$(hostname -f 2>/dev/null || echo "${SSH_SERVER_IP}")
+        TUNNEL_CMD="ssh -L ${AUTH_PORT}:localhost:${AUTH_PORT} -N ${USER}@${SERVER_HOST}"
+        [[ "${SSH_SERVER_PORT}" != "22" ]] && TUNNEL_CMD+=" -p ${SSH_SERVER_PORT}"
+
+        cat <<EOF
+  Headless server detected. In a separate terminal on your local machine, run:
+
+    ${TUNNEL_CMD}
+
+  Then press Enter here — a URL will appear. Open it in your local browser to
+  complete the OAuth flow. The tunnel forwards the callback back to this server.
+EOF
+        read -r -p "  > " || true
+        echo
+    fi
+
+    echo "  Running OAuth flow..."
     (
         cd "${ACCOUNT_DIR}"
         set -a
         # shellcheck source=/dev/null
         source ".env"
         set +a
-        "${DAILY_AGENDA}" --auth
+        "${DAILY_AGENDA}" --auth "${AUTH_ARGS[@]}"
     )
     ok "Authentication complete. Token saved to ${ACCOUNT_DIR}/token.json"
 else
