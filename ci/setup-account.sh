@@ -409,7 +409,11 @@ fi
 if [[ -f "${ACCOUNT_DIR}/credentials.json" ]]; then
     # Detect headless: SSH session with no display available
     AUTH_ARGS=()
+    SUPPORTS_HEADLESS=$("${DAILY_AGENDA}" --help 2>&1 | grep -c -- '--no-browser' || true)
     if [[ -n "${SSH_CONNECTION:-}" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+        if [[ "$SUPPORTS_HEADLESS" -eq 0 ]]; then
+            die "Headless server detected but installed daily-agenda does not support --no-browser. Run ci/install-from-whl.sh to upgrade, then re-run auth."
+        fi
         AUTH_PORT=8080
         AUTH_ARGS=(--port "${AUTH_PORT}" --no-browser)
 

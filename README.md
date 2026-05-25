@@ -75,7 +75,7 @@ The wizard will:
 4. Install the `daily-agenda@.service` template unit if not already present, then create and enable a per-instance timer at the time you choose
 5. Check for an existing `credentials.json` in other accounts and offer to reuse it — or wait for you to place a new one, then run the Google OAuth flow
 
-**Headless servers:** the OAuth step opens a browser. SSH port-forward `localhost:<port>` and run the wizard (or just the `--auth` step) from a machine with a browser.
+**Headless servers:** the OAuth step opens a browser. The wizard detects SSH sessions and prints the exact `ssh -L` tunnel command to run from your local machine.
 
 To authenticate manually after setup:
 
