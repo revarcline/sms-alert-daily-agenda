@@ -195,7 +195,8 @@ All configuration is via environment variables in each account's `.env` file.
 | `CALENDAR_IDS` | `primary` | Comma-separated calendar IDs |
 | `PER_CALENDAR` | `false` | Send one SMS per calendar instead of combining |
 | `TIMEZONE` | `America/New_York` | IANA timezone for the agenda |
-| `LOOKAHEAD_DAYS` | `7` | Days ahead to include one-off upcoming events |
+| `LOOKAHEAD_DAYS` | `7` | Days ahead to include one-off upcoming events (starting window) |
+| `LOOKAHEAD_MIN_EVENTS` | `5` | Expand lookahead window until at least this many upcoming events are found |
 | `RECURRING_CHECK_WEEKS` | `4` | Weeks of history to use for recurring-event detection |
 | `AGENDA_DATE` | *(today)* | Override the agenda date (`YYYY-MM-DD`) |
 
@@ -204,4 +205,5 @@ All configuration is via environment variables in each account's `.env` file.
 | Flag | Description |
 |---|---|
 | `--auth` | Run OAuth2 setup flow and exit |
+| `--list-calendars` | Print all calendars and their IDs, then exit |
 | `--dry-run` | Print agenda to stdout; do not send SMS |

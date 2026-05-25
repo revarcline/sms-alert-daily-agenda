@@ -65,6 +65,7 @@ def load_config() -> dict:
             if c.strip()
         ],
         "lookahead_days": int(os.environ.get("LOOKAHEAD_DAYS", "7")),
+        "lookahead_min_events": int(os.environ.get("LOOKAHEAD_MIN_EVENTS", "5")),
         "recurring_check_weeks": int(os.environ.get("RECURRING_CHECK_WEEKS", "4")),
         "tz": tz,
         "agenda_date": os.environ.get("AGENDA_DATE", "").strip(),

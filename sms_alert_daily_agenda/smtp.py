@@ -16,6 +16,7 @@ def send_sms(config: dict, messages: list[str]) -> None:
             msg = MIMEText(body, "plain")
             msg["From"] = config["smtp_user"]
             msg["To"] = config["sms_to"]
+            msg["Subject"] = "Agenda"
             smtp.sendmail(config["smtp_user"], config["sms_to"], msg.as_string())
             log.info("SMS %d/%d → %s  (%d chars)", i, len(messages), config["sms_to"], len(body))
 

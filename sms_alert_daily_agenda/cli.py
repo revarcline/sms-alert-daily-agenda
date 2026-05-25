@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send daily Google Calendar agenda via SMS.")
     parser.add_argument("--auth", action="store_true", help="Run OAuth2 setup and exit.")
+    parser.add_argument("--list-calendars", action="store_true", help="List available calendars and their IDs, then exit.")
     parser.add_argument("--dry-run", action="store_true", help="Print agenda without sending SMS.")
     parser.add_argument("--port", type=int, default=0, metavar="PORT",
                         help="Port for the OAuth callback server (default: random). "
@@ -45,6 +46,12 @@ def main() -> None:
 
     if args.auth:
         log.info("Authentication successful. Token saved to %s.", config["token_file"])
+        return
+
+    if args.list_calendars:
+        items = service.calendarList().list().execute().get("items", [])
+        for cal in items:
+            print(f"{cal['id']:<50}  {cal.get('summary', '')}")
         return
 
     tz = config["tz"]
@@ -76,6 +83,17 @@ def main() -> None:
 
         today = _dedup_sort(raw_today)
         upcoming = _dedup_sort(raw_upcoming)
+
+        min_events = config["lookahead_min_events"]
+        window = config["lookahead_days"]
+        while len(upcoming) < min_events and window < 365:
+            window = min(window * 2, 365)
+            raw_upcoming = []
+            for cid in cal_ids:
+                raw_upcoming += fetch_lookahead_events(
+                    service, cid, day, tz, window, config["recurring_check_weeks"],
+                )
+            upcoming = _dedup_sort(raw_upcoming)
 
         if not today and not upcoming:
             log.info("No events for [%s] — skipping SMS.", label)

@@ -93,16 +93,13 @@ def _is_cancelled(event: dict) -> bool:
 
 def _is_recurring(event: dict, pool: list[dict], check_weeks: int) -> bool:
     """
-    Return True if the event appears to be recurring.
+    Return True if the event appears to be a regular weekly recurring event.
 
-    Detection uses two methods:
-    1. Google API fields: recurringEventId or recurrence rule present.
-    2. Weekly-pattern check: same summary appears at ~7-day intervals in pool.
-       Requires 2+ weekly matches to guard against coincidental same-name events.
+    Uses behavioral pattern detection only: same summary at ~7-day intervals in
+    the pool, requiring 2+ weekly matches. This intentionally skips the API
+    recurringEventId field so that instances with modified titles (e.g. "Final
+    Dress Rehearsal" in an otherwise weekly series) still appear in Soon.
     """
-    if event.get("recurringEventId") or event.get("recurrence"):
-        return True
-
     if check_weeks <= 0:
         return False
 

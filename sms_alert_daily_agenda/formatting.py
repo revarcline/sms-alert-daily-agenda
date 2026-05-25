@@ -43,7 +43,7 @@ def _event_time_str(event: dict, tz: ZoneInfo) -> str:
 
 
 def _event_line(event: dict, tz: ZoneInfo, date_prefix: str = "") -> str:
-    title = event.get("summary", "(no title)").strip()
+    title = event.get("summary", "(no title)").strip().replace("\r", "")
     time_str = _event_time_str(event, tz)
     parts = [p for p in (date_prefix.strip(), time_str, title) if p]
     return " ".join(parts)
@@ -57,13 +57,24 @@ def _sort_key(event: dict) -> datetime:
 
 
 def _dedup_sort(events: list[dict]) -> list[dict]:
-    seen: set[str] = set()
+    seen_ids: set[str] = set()
+    seen_content: set[tuple[str, str]] = set()
     out: list[dict] = []
     for e in sorted(events, key=_sort_key):
         eid = e.get("id", "")
-        if eid not in seen:
-            seen.add(eid)
-            out.append(e)
+        start = e.get("start", {})
+        start_str = start.get("dateTime") or start.get("date") or ""
+        title = e.get("summary", "").strip().lower()
+        content_key = (title, start_str)
+
+        if (eid and eid in seen_ids) or (title and content_key in seen_content):
+            continue
+
+        if eid:
+            seen_ids.add(eid)
+        if title:
+            seen_content.add(content_key)
+        out.append(e)
     return out
 
 

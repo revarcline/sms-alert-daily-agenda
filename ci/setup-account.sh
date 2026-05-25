@@ -270,7 +270,7 @@ GOOGLE_CREDENTIALS_FILE=credentials.json
 GOOGLE_TOKEN_FILE=token.json
 
 # ── Schedule ──────────────────────────────────────────────────────────────────
-CALENDAR_IDS=${CALENDAR_IDS}
+CALENDAR_IDS="${CALENDAR_IDS}"
 TIMEZONE=${TIMEZONE}
 LOOKAHEAD_DAYS=${LOOKAHEAD_DAYS}
 RECURRING_CHECK_WEEKS=${RECURRING_CHECK_WEEKS}
@@ -453,6 +453,39 @@ else
     cd ${ACCOUNT_DIR}
     ${DAILY_AGENDA} --auth
 EOF
+fi
+
+# ── Calendar selection ────────────────────────────────────────────────────────
+
+if [[ -f "${ACCOUNT_DIR}/token.json" ]]; then
+    echo
+    hr
+    echo "  Calendar selection"
+    hr
+    echo
+
+    CALENDAR_LIST=$(
+        cd "${ACCOUNT_DIR}"
+        set -a
+        # shellcheck source=/dev/null
+        source ".env"
+        set +a
+        "${DAILY_AGENDA}" --list-calendars 2>/dev/null
+    ) || true
+
+    if [[ -n "$CALENDAR_LIST" ]]; then
+        echo "  Available calendars:"
+        echo "$CALENDAR_LIST" | sed 's/^/    /'
+        echo
+        if prompt_yn "Update CALENDAR_IDS in .env?"; then
+            CURRENT_IDS=$(grep -E "^CALENDAR_IDS=" "$ENV_FILE" | sed 's/^CALENDAR_IDS=//; s/^"//; s/"$//')
+            prompt CALENDAR_IDS "Calendar IDs (comma-separated)" "${CURRENT_IDS:-primary}"
+            sed -i "s|^CALENDAR_IDS=.*|CALENDAR_IDS=\"${CALENDAR_IDS}\"|" "$ENV_FILE"
+            ok "Updated CALENDAR_IDS."
+        fi
+    else
+        warn "Could not list calendars — update CALENDAR_IDS in ${ENV_FILE} manually."
+    fi
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
